@@ -16,95 +16,72 @@
 
 #include "utils_v1.h"
 
-
 #define BUF_LEN 256
 
 //******************************************************//
 // LECTURE CLAVIER
 //******************************************************//
 
-// Version modifiée de la fonction: litEtValideChaine (cf. TP6 de l'UE I2011)
-
-int readLimitedLine (char* s, int sz) {
-   while (fgets(s, sz, stdin) != NULL) {
-      // Traitement d'une ligne trop longue
-      if (s[strlen(s)-1] != '\n') {
-         printf("Ligne trop longue (max %d caracteres). Recommencez.\n", sz-2);
-         // vidage du buffer de lecture bloc par bloc
-         while (fgets(s, sz, stdin) && s[strlen(s)-1] != '\n') ;
-         // OU vidage du buffer de lecture caractere par caractere:
-         //while (getchar() != '\n');
-         continue;
-      }
-
-      // Chaine valide: suppression de '\n' et renvoi du nombre de caractères de la chaine
-      s[strlen(s)-1] = '\0';
-      return strlen(s);
-   }
-
-   // Cas d'erreur ou de fin de fichier
-   return -1;
+int readLimitedLine(char* s, int sz) {
+    while (fgets(s, sz, stdin) != NULL) {
+        if (s[strlen(s)-1] != '\n') {
+            printf("Ligne trop longue (max %d caracteres). Recommencez.\n", sz-2);
+            while (fgets(s, sz, stdin) && s[strlen(s)-1] != '\n');
+            continue;
+        }
+        s[strlen(s)-1] = '\0';
+        return strlen(s);
+    }
+    return -1;
 }
 
-// Anciennement: lireLigne (cf. TP1)
-// Pour une vidéo sur cette fonction: http://youtu.be/Zuyhvnwmlao?hd=1
+char* readLine(void) {
+    char buf[BUF_LEN];
+    char* s = NULL;
+    bool fin = false;
 
-char* readLine () {
-   char buf[BUF_LEN];
-   char* s = NULL;
-   bool fin = false;
+    while (fgets(buf, BUF_LEN, stdin)) {
+        int taille = strlen(buf);
+        if (buf[taille-1] == '\n') {
+            taille--;
+            buf[taille] = '\0';
+            fin = true;
+        }
 
-   while (fgets(buf, BUF_LEN, stdin)) {
-      // Traitement d'un bloc de caractères lus sur stdin
-      int taille = strlen(buf);
-      if (buf[taille-1] == '\n') {
-         taille--;
-         buf[taille] = '\0';
-         fin = true;
-      }
+        if (s == NULL) {
+            s = (char*)malloc((taille+1) * sizeof(char));
+            if (s == NULL) return NULL;
+            strcpy(s, buf);
+        } else {
+            s = (char*)realloc(s, (strlen(s)+taille+1) * sizeof(char));
+            if (s == NULL) return NULL;
+            strcat(s, buf);
+        }
 
-      if (s == NULL) {
-         // Première allocation de la chaîne s
-         s = (char*) malloc((taille+1) * sizeof(char));
-         if (s == NULL) return NULL;
-         // Copie des caractères du buffer dans s
-         strcpy(s,buf);
-      } else {
-         // Réallocation de la chaîne s
-         s = (char*) realloc(s, (strlen(s)+taille+1) * sizeof(char));
-         if (s == NULL) return NULL;
-         // Concaténation des caractères du buffer à la fin de s
-         strcat(s,buf);
-      }
-
-      if (fin)
-         // Fin de la ligne lue sur stdin
-         return s;
-   }
-
-   // Cas d'erreur ou de fin de fichier
-   return NULL;
+        if (fin) return s;
+    }
+    return NULL;
 }
 
 //******************************************************
 // AFFICHAGE DE MESSAGES EN COULEUR
 //******************************************************
 
-void printOk (char *s) {
-    colorOn(1,GREEN_TEXT);
-    fprintf (stdout,"%s", s);
+void printOk(char* s) {
+    colorOn(1, GREEN_TEXT);
+    fprintf(stdout, "%s", s);
     colorOff();
 }
 
-void printError (char *s) {
-    colorOn(1,RED_TEXT);
-    fprintf (stdout,"%s", s);
+void printError(char* s) {
+    colorOn(1, RED_TEXT);
+    fprintf(stdout, "%s", s);
     colorOff();
 }
 
-void printColor (char* format, char* s, int color) {
-    colorOn(1,color);
-    fprintf (stdout, format, s);
+void printColor(char* format, char* s, int color) {
+    colorOn(1, color);
+    fprintf(stdout, format, s);
     colorOff();
 }
 
@@ -112,45 +89,34 @@ void printColor (char* format, char* s, int color) {
 // DATE AND TIME
 //******************************************************
 
-char* getTime () {
-  time_t t;
-  time_t ret = time(&t);  
-  checkNeg(ret, "ERROR getTime");
-  
-  char* s = ctime(&t);
-  checkCond(s == NULL, "ERROR getTime");
-  
-  size_t sz = strlen(s);
-  s[sz - 1] = '\0';
-  
-  return s;
+char* getTime(void) {
+    time_t t;
+    time(&t);
+    char* s = ctime(&t);
+    s[strlen(s) - 1] = '\0'; // Remove trailing newline
+    return s;
 }
 
 //******************************************************
 // RANDOM INTEGER
 //******************************************************
 
-static unsigned generateRandomSeed () {
-  unsigned seed;
-  FILE* fd = fopen("/dev/urandom", "r");  // entropy file in Unix systems
-  checkCond(fd == NULL, "ERROR fopen"); 
-  
-  size_t ret1 = fread(&seed, sizeof(unsigned), 1, fd);
-  checkCond(ret1 == 0, "ERROR fread"); 
-  
-  int ret2 = fclose(fd);
-  checkCond(ret2 == EOF, "ERROR fclose");
-  return seed;
+static unsigned generateRandomSeed(void) {
+    unsigned seed;
+    FILE* fd = fopen("/dev/urandom", "r");
+    fread(&seed, sizeof(unsigned), 1, fd);
+    fclose(fd);
+    return seed;
 }
 
-int randomIntBetween (int valMin, int valMax) {
-  // Initialization of 'random seed'
-  srand(generateRandomSeed());  // srand defined in <stdlib.h>
-  
-  // Generation of random value
-  int nombre = valMin + (int)(rand()/(RAND_MAX+1.0)*(valMax-valMin+1));  // rand and RAND_MAX defined in <stdlib.h>
-  return nombre;
-}  
+int randomIntBetween(int valMin, int valMax) {
+    srand(generateRandomSeed());
+    int nombre = valMin + (int)(rand() / (RAND_MAX + 1.0) * (valMax - valMin + 1));
+    return nombre;
+}
+
+// The rest of the code remains unchanged...
+
 
 //*****************************************************************************
 // MALLOC
@@ -250,7 +216,7 @@ int readLimitedLineOnFile(int fd, char* s, int sz) {
 // FORK
 //*****************************************************************************
 
-pid_t sfork() {
+pid_t sfork(void) {
   int childId = fork();
   checkCond(childId == -1, "Fork failed");
   return childId;
@@ -498,7 +464,7 @@ void sem_delete(int sem_id) {
 // SOCKETS
 //******************************************************************************
 
-int ssocket(){
+int ssocket(void){
   int sockfd = socket(AF_INET, SOCK_STREAM, 0);
   checkNeg(sockfd,"socket client creation error");
   return sockfd;
@@ -509,7 +475,7 @@ int sconnect(char *serverIP,int serverPort, int sockfd ){
   memset(&addr,0,sizeof(addr)); /* en System V */
   addr.sin_family = AF_INET;
   addr.sin_port = htons(serverPort);
-  inet_aton(serverIP,&addr.sin_addr);
+  inet_pton(AF_INET, serverIP, &addr.sin_addr);
   int ret = connect(sockfd, (struct sockaddr *) &addr, sizeof(addr));
   checkNeg(ret,"connect client error");
   return ret;
